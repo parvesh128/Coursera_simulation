@@ -24,6 +24,7 @@ class Learner:
 		self.sim = sim
 		self.LastSubmission = None
 		self.submissionReviewing = None
+		self.submissionsAlreadyReviewed = []
 
 	def getTrueScoreForTheSubmission(self):
 
@@ -53,12 +54,12 @@ class Learner:
 
 				#TODO Done with work Submit it ?
 				trueScore = self.getTrueScoreForTheSubmission()
-				submisison = Submission(current_tick,self.learnerId,trueScore)
+				submission = Submission(current_tick,self.learnerId,trueScore)
 				self.numSubmissions = self.numSubmissions + 1
-				self.LastSubmission = submisison
-				self.sim.addsubmission(submisison)
-
+				self.LastSubmission = submission
+				self.sim.addsubmission(submission)
 				self.state = LearnerState.WaitingForSubmissionsToreview
+			
 			elif self.state == LearnerState.WaitingForSubmissionsToreview:
 
 				#Try to see if the last submission by me has been graded if failed work on it
@@ -67,9 +68,11 @@ class Learner:
 				#break
 				if self.LastSubmission == None:
 					break #error condition should not happen
-				if self.LastSubmission.isPassingGrade() == 0:
+
+				lastSubmissionGraded = self.LastSubmission.isPassingGrade() 
+				if lastSubmissionGraded == 0:
 					#Remove it from the list of submissions
-					self.sim.removeSubmission(self.LastSubmission)
+					self.sim.removeFailedSubmission(self.lId)
 					self.state = LearnerState.WorkingOnSubmission
 					self.workToBeDone = 50
 					break
@@ -79,12 +82,13 @@ class Learner:
 				#self.state = LearnerState.Reviewing
 				#self.workToBeDone = 20
 				#break
-				submissiontoReview = self.sim.getSubmissionToReview()
+				submissiontoReview = self.sim.getSubmissionToReview(self.lId,self.submissionsAlreadyReviewed)
 				if submissiontoReview == None:
 					break
 				
-				self.sim.addReviewerForSubmission(submissiontoReview,self.lId)
+				#self.sim.addReviewerForSubmission(submissiontoReview,self.lId)
 				self.submissionReviewing = submissiontoReview
+				self.submissionsAlreadyReviewed.append(submission.learnerId)
 				self.state = LearnerState.Reviewing
 				self.workToBeDone = 20
 
@@ -108,12 +112,26 @@ class Learner:
 				#self.state = LearnerState.WorkingOnSubmission
 				#self.workToBeDone = 50
 				#break
+				if self.LastSubmission == None:
+					break #error condition should not happen
+
+				lastSubmissionGraded = self.LastSubmission.isPassingGrade() 
+				if lastSubmissionGraded == 0:
+					#Remove it from the list of submissions
+					self.sim.removeFailedSubmission(self.lId)
+					self.state = LearnerState.WorkingOnSubmission
+					self.workToBeDone = 50
+					break
+
 
 				if self.numReviews < 3*numSubmissions:
 					self.state = LearnerState.WaitingForSubmissionsToreview
+					break
 
 				#See if latest submission doesn't have a grade
-				self.state = LearnerState.WaitingForGrade
+				if lastSubmissionGraded == -1:
+					self.state = LearnerState.WaitingForGrade
+					break
 
 
 				#If nothing it means got a passing grade 
@@ -125,11 +143,21 @@ class Learner:
 				#Check how many reviews does latest submission has 
 				#if less than 3 
 				#break
+				lastSubmissionGraded = self.LastSubmission.isPassingGrade()
+				if lastSubmissionGraded == -1:
+					break
+
 
 				#Try to see if the last submission by me has been graded if failed work on it
 				#self.state = LearnerState.WorkingOnSubmission
 				#self.workToBeDone = 50
 				#break
+				if lastSubmissionGraded == 0:
+					self.sim.removeFailedSubmission(self.lId)
+					self.state = LearnerState.WorkingOnSubmission
+					self.workToBeDone = 50
+					break
+
 
 				#If nothing it means got a passing grade 
 				self.state = Finished
@@ -165,6 +193,7 @@ class Submission:
 		self.numReviewers = 0
 		self.reviewsCompleted = 0
 		self.trueScore = trueScore
+		self.reviewers = []
 
 	def getTrueScore(self):
 		return self.trueScore
@@ -218,16 +247,20 @@ class Submission:
 
 		return 0
 
+	def getReviewers(self):
+		return self.reviewers
 
-	def addReviewer(self):
+	def addReviewer(self,reviewerId):
 
 		if self.state != ReadyToReview and self.state != BeingReviewedReviewersNeeded:
 			return -1  #Should not happen
 
 		if self.state == SubmissionState.ReadyToReview:
+			self.reviewers.append[reviewerId]
 			self.numReviewers = 1
 			self.state = SubmissionState.BeingReviewedReviewersNeeded
 		elif self.state == SubmissionState.BeingReviewedReviewersNeeded:
+			self.reviewers.append[reviewerId]
 			self.numReviewers = self.numReviewers + 1
 			if self.reviewsCompleted + self.numReviewers == 3:
 				self.state = SubmissionState.BeingReviewedNoMoreReviwersNeeded
@@ -284,16 +317,16 @@ class Simulation:
 	# 		if sub.getState() == SubmissionState.Submitted :
 	# 			sub.setState(SubmissionState.ReadyToReview)
 
-	def addReviewerForSubmission(self,submisison,reviewerId):
+	# def addReviewerForSubmission(self,submisison,reviewerId):
 
-		if reviewerId not in self.ReviewerSubmissionMap:
-			self.ReviewerSubmissionMap[reviewerId] = []
+	# 	if reviewerId not in self.ReviewerSubmissionMap:
+	# 		self.ReviewerSubmissionMap[reviewerId] = []
 
-		self.ReviewerSubmissionMap[reviewerId].append(submisison.getLearnerId())
+	# 	self.ReviewerSubmissionMap[reviewerId].append(submisison.getLearnerId())
 
-		submission.addReviwer()
+	# 	submission.addReviwer()
 
-	def getSubmissionToReview(self,learnerId):
+	def getSubmissionToReview(self,learnerId,submissionsAlreadyReviewed):
 
 		subId = -1
 		minSubTime = sys.maxint
@@ -305,8 +338,11 @@ class Simulation:
 			if subLid == learnerId :
 				continue
 
-			if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
+			if subLid in submissionsAlreadyReviewed:
 				continue
+
+			# if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
+			# 	continue
 
 			subState = sub.getState()
 
@@ -324,6 +360,8 @@ class Simulation:
 			return None
 
 		retval = self.submissions[subId]
+
+		retval.addReviwer(learnerId)
 
 		return retval
 

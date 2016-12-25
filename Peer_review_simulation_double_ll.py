@@ -15,6 +15,25 @@ class submissionListAndMap:
 		self.tail = None
 		self.map = {}
 		self.size = 0
+		self.current = -1
+
+
+	def __iter__(self):
+        return self
+
+    def next(self):
+		retval = None 
+		if self.current == -1:
+			if self.head == None:
+				raise StopIteration
+			self.current = self.head.n
+			retval = self.head
+		elif self.current == None:
+			raise StopIteration
+		else:
+			retval = self.current
+			self.current = self.current.n
+		return retval.getSubmission()
 
 
 	def insert(self,submission):
@@ -24,17 +43,7 @@ class submissionListAndMap:
 
 		new_node = Linked_list_node(submission)
 
-		self.insertSubmissionNode(new_node)
-		# self.map[submission.getLearnerId()] = new_node
-
-		# if self.head == None:
-		# 	self.head = new_node
-		# 	self.tail = new_node
-		# else:
-		# 	self.tail.n = new_node
-		# 	self.tail = new_node
-
-		# self.size =self.size + 1
+		self.insertNode(new_node)
 
 	def remove(self,learnerId):
 
@@ -43,26 +52,33 @@ class submissionListAndMap:
 
 		submisisonNode = self.map[learnerId]
 
+		self.removeNode(submisisonNode)
 
-		prevNode = submission.p
-		nextNode = submission.n
+	def removeNode(self,node):
+
+		prevNode = node.p
+		nextNode = node.n
 
 		if prevNode != None:
 			prevNode.n = nextNode
 		if nextNode != None:
 			nextNode.p = prevNode
 
-		if self.head == submisisonNode:
+		if self.head == node:
 			self.head = nextNode
 
-		if self.tail == submisisonNode:
+		if self.tail == node:
 			self.tail = prevNode
 
 		self.size =self.size - 1
 
-		del self.map[learnerId]
+		lId = node.getSubmission().getLearnerId()
 
-	def insertSubmissionNode(self,subNode):
+		del self.map[lId]
+
+
+
+	def insertNode(self,subNode):
 
 		self.map[subNode.getSubmission().getLearnerId()] = subNode
 
@@ -77,6 +93,7 @@ class submissionListAndMap:
 
 	def appendOtherListandMap(self,other):
 
+		#TODO optimize this 
 		if other.size == 0:
 			return
 
@@ -85,8 +102,28 @@ class submissionListAndMap:
 		while temp is not None:
 
 			temp.sub.setState(SubmissionState.ReadyToReview)
-			self.insertSubmissionNode(temp)
+			self.insertNode(temp)
 			temp = temp.n
+
+	def appendOtherListNodeInaParticularState(self,other,state):
+
+		if other.size == 0:
+			return 
+
+		temp = other.head
+
+		while temp is not None:
+
+			if temp.getSubmission().getState() == state:
+
+				self.insertNode(temp)
+
+				prev = temp
+				temp = temp.n
+
+				other.removeNode(prev)
+
+
 
 
 
@@ -110,6 +147,11 @@ class SubmissionPool:
 
 		self.subLM.remove(submitterid)
 
+	def removeFailedSubmission(self,submitterid):
+
+		self.reviewedLM.remove(submitterid)
+
+
 
 	def markSubmissionsReadyToReview(self):
 
@@ -117,30 +159,28 @@ class SubmissionPool:
 
 		self.subLM = submissionListAndMap()
 
+	def markGradedSubmissions(self):
 
-	def addReviewerForSubmission(self,submisison,reviewerId):
+		self.reviewedLM.appendOtherListNodeInaParticularState(self.revLM,SubmissionState.GradeReady)
 
-		if reviewerId not in self.ReviewerSubmissionMap:
-			self.ReviewerSubmissionMap[reviewerId] = []
 
-		self.ReviewerSubmissionMap[reviewerId].append(submisison.getLearnerId())
 
-		submission.addReviwer()
+	def getSubmissionToReview(self,learnerId,submissionsAlreadyReviewed):
 
-	def getSubmissionToReview(self,learnerId):
-
-		subId = -1
+		minsub = None
 		minSubTime = sys.maxint
 		minLearnerId = sys.maxint
 
-		for idx in xrange(len(self.submissions)):
-			sub = self.submissions[idx]
+		for sub in self.revLM:
 			subLid = sub.getLearnerId()
 			if subLid == learnerId :
 				continue
 
-			if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
+			if subLid in submissionsAlreadyReviewed:
 				continue
+
+			# if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
+			# 	continue
 
 			subState = sub.getState()
 
@@ -149,17 +189,17 @@ class SubmissionPool:
 
 			subTime = sub.getSubmissionTime()
 			if (subTime < minSubTime) or ((subTime == minSubTime) and (subLid < minLearnerId)):
-				subId = idx
+				minsub = sub
 				minSubTime = subTime
 				minLearnerId = subLid
 				continue
 			
-		if subId == -1:
+		if minsub == None:
 			return None
 
-		retval = self.submissions[subId]
+		minsub.addReviwer(learnerId)
 
-		return retval
+		return minsub
 
 
 
