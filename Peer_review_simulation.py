@@ -1,14 +1,309 @@
 import sys
-from enum import Enum
 
 
-class LearnerState(Enum):
-	WaitingBeforeFirstSubmission = 1
-	WorkingOnSubmission = 2
-	WaitingForSubmissionsToreview = 3
-	Reviewing = 4
-	WaitingForGrade = 5
-	Finished = 6
+class SubmissionState:
+	Start,WorkedOn,Submitted ,ReadyToReview ,BeingReviewedReviewersNeeded,BeingReviewedNoMoreReviwersNeeded,GradeReady = range(8)
+
+
+class Submission:
+
+	def __init__(self,submissionTime,learnerId, trueScore):
+
+		self.state = SubmissionState.Start
+		self.submissionTime = 0
+		self.learnerId = learnerId
+		self.grade = 0
+		self.numReviewers = 0
+		self.reviewsCompleted = 0
+		self.trueScore = trueScore
+		self.reviewers = []
+		self.gradeTick =
+
+	def getTrueScore(self):
+		return self.trueScore
+
+	def getLearnerId(self):
+		return self.learnerId
+
+	def getSubmissionTime(self):
+		return self.submissionTime
+
+
+	def getState(self):
+		return self.state
+
+	def setState(self,state):
+		self.state = state
+
+	def getGrade(self):
+		return self.grade
+
+	def getGradeTick(self):
+		return self.gradeTick
+
+	def getSubmissionTime(self):
+		return self.submissionTime
+
+
+	def addGrade(self,grade,current_tick):
+
+		if self.state != SubmissionState.BeingReviewedReviewersNeeded\
+		and self.state != SubmissionState.BeingReviewedNoMoreReviwersNeeded:
+			return -1 #Should not happen
+
+		self.reviewsCompleted = self.reviewsCompleted + 1
+
+		if self.grade == -1:
+			self.grade = grade
+		else:
+			self.grade = self.grade + grade
+
+		if self.reviewsCompleted == 3:
+			self.state = SubmissionState.GradeReady
+			self.gradeTick = current_tick
+
+	def getGradeIfReady(self):
+
+		if self.state == Submission.GradeReady:
+			return self.grade
+
+		return -1
+
+	def isPassingGrade(self):
+
+		if self.state != Submission.GradeReady:
+			return -1
+
+		if self.grade >= 240:
+			return 1
+
+		return 0
+
+	def getReviewers(self):
+		return self.reviewers
+
+	def addReviewer(self,reviewerId):
+
+		if self.state != ReadyToReview and self.state != BeingReviewedReviewersNeeded:
+			return -1  #Should not happen
+
+		if self.state == SubmissionState.ReadyToReview:
+			self.reviewers.append[reviewerId]
+			self.numReviewers = 1
+			self.state = SubmissionState.BeingReviewedReviewersNeeded
+		elif self.state == SubmissionState.BeingReviewedReviewersNeeded:
+			self.reviewers.append[reviewerId]
+			self.numReviewers = self.numReviewers + 1
+			if self.reviewsCompleted + self.numReviewers == 3:
+				self.state = SubmissionState.BeingReviewedNoMoreReviwersNeeded
+
+
+
+
+
+
+
+class Linked_list_node:
+
+	def __init__(self,submission):
+		self.sub = submission
+		self.p = None
+		self.n = None
+
+	def getSubmission():
+		return self.sub
+
+class submissionListAndMap:
+
+	def __init__(self):
+		self.head = None
+		self.tail = None
+		self.map = {}
+		self.size = 0
+		self.current = -1
+
+
+	def __iter__(self):
+        return self
+
+    def next(self):
+		retval = None 
+		if self.current == -1:
+			if self.head == None:
+				raise StopIteration
+			self.current = self.head.n
+			retval = self.head
+		elif self.current == None:
+			raise StopIteration
+		else:
+			retval = self.current
+			self.current = self.current.n
+		return retval.getSubmission()
+
+
+	def insert(self,submission):
+
+		if submission == None:
+			return -1 #Error should not happen
+
+		new_node = Linked_list_node(submission)
+
+		self.insertNode(new_node)
+
+	def remove(self,learnerId):
+
+		if learnerId not in self.map:
+			return -1 # Should not happen
+
+		submisisonNode = self.map[learnerId]
+
+		self.removeNode(submisisonNode)
+
+	def removeNode(self,node):
+
+		prevNode = node.p
+		nextNode = node.n
+
+		if prevNode != None:
+			prevNode.n = nextNode
+		if nextNode != None:
+			nextNode.p = prevNode
+
+		if self.head == node:
+			self.head = nextNode
+
+		if self.tail == node:
+			self.tail = prevNode
+
+		self.size =self.size - 1
+
+		lId = node.getSubmission().getLearnerId()
+
+		del self.map[lId]
+
+
+
+	def insertNode(self,subNode):
+
+		self.map[subNode.getSubmission().getLearnerId()] = subNode
+
+		if self.head == None:
+			self.head = subNode
+			self.tail = subNode
+		else:
+			self.tail.n = subNode
+			self.tail = subNode
+
+		self.size =self.size + 1
+
+	def appendOtherListandMap(self,other):
+
+		#TODO optimize this 
+		if other.size == 0:
+			return
+
+		temp = other.head
+
+		while temp is not None:
+
+			temp.sub.setState(SubmissionState.ReadyToReview)
+			self.insertNode(temp)
+			temp = temp.n
+
+	def appendOtherListNodeInaParticularState(self,other,state):
+
+		if other.size == 0:
+			return 
+
+		temp = other.head
+
+		while temp is not None:
+
+			if temp.getSubmission().getState() == state:
+
+				self.insertNode(temp)
+
+				prev = temp
+				temp = temp.n
+
+				other.removeNode(prev)
+
+
+
+
+class SubmissionPool:
+
+	def __init__(self):
+		self.subLM = submissionListAndMap()  #Submitted
+		self.revLM = submissionListAndMap()   # Ready to review or being reviewed
+		self.reviewedLM = submissionListAndMap() # Graded
+
+
+	def addSubmissionToPool(self,submission):
+		self.subLM.insert(submission)
+
+	def removeSubmission(self,submission):
+
+		submitterid = submission.getLearnerId()
+
+		self.subLM.remove(submitterid)
+
+	def removeFailedSubmission(self,submitterid):
+
+		self.reviewedLM.remove(submitterid)
+
+	def markSubmissionsReadyToReview(self):
+
+		self.revLM.appendOtherListandMap(self.subLM)
+
+		self.subLM = submissionListAndMap()
+
+	def markGradedSubmissions(self):
+
+		self.reviewedLM.appendOtherListNodeInaParticularState(self.revLM,SubmissionState.GradeReady)
+
+
+
+	def getSubmissionToReviewAndAddReviewer(self,learnerId,submissionsAlreadyReviewed):
+
+		minsub = None
+		minSubTime = sys.maxint
+		minLearnerId = sys.maxint
+
+		for sub in self.revLM:
+			subLid = sub.getLearnerId()
+			if subLid == learnerId :
+				continue
+
+			if subLid in submissionsAlreadyReviewed:
+				continue
+
+			# if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
+			# 	continue
+
+			subState = sub.getState()
+
+			if subState != SubmissionState.ReadyToReview and submisison != SubmissionState.BeingReviewedReviewersNeeded:
+				continue
+
+			subTime = sub.getSubmissionTime()
+			if (subTime < minSubTime) or ((subTime == minSubTime) and (subLid < minLearnerId)):
+				minsub = sub
+				minSubTime = subTime
+				minLearnerId = subLid
+				continue
+			
+		if minsub == None:
+			return None
+
+		minsub.addReviwer(learnerId)
+
+		return minsub
+
+
+
+class LearnerState:
+	WaitingBeforeFirstSubmission ,WorkingOnSubmission ,WaitingForSubmissionsToreview,Reviewing,WaitingForGrade,Finished = range(6)
 
 class Learner:
 
@@ -30,7 +325,7 @@ class Learner:
 
 		return min(100,self.fSTG + 15*self.numSubmissions)
 
-	def getGradeForTheSubmission(trueScore):
+	def getGradeForTheSubmissionReviewing(trueScore):
 
 		if self.reviewBias > 0:
 
@@ -57,7 +352,7 @@ class Learner:
 				submission = Submission(current_tick,self.learnerId,trueScore)
 				self.numSubmissions = self.numSubmissions + 1
 				self.LastSubmission = submission
-				self.sim.addsubmission(submission)
+				self.sim.addSubmission(submission)
 				self.state = LearnerState.WaitingForSubmissionsToreview
 			
 			elif self.state == LearnerState.WaitingForSubmissionsToreview:
@@ -82,7 +377,7 @@ class Learner:
 				#self.state = LearnerState.Reviewing
 				#self.workToBeDone = 20
 				#break
-				submissiontoReview = self.sim.getSubmissionToReview(self.lId,self.submissionsAlreadyReviewed)
+				submissiontoReview = self.sim.getSubmissionToReviewAndAddReviewer(self.lId,self.submissionsAlreadyReviewed)
 				if submissiontoReview == None:
 					break
 				
@@ -103,8 +398,8 @@ class Learner:
 
 
 				self.numReviews = self.numReviews + 1
-				grade = getGradeForTheSubmission(self.submissionReviewing.getTrueScore())
-				self.submissionReviewing.addGrade(grade)
+				grade = getGradeForTheSubmissionReviewing(self.submissionReviewing.getTrueScore())
+				self.submissionReviewing.addGrade(grade,current_tick)
 				self.submissionReviewing = None
 
 
@@ -166,213 +461,79 @@ class Learner:
 
 
 
-
-
-
-
-class SubmissionState(Enum):
-	Start = 1
-	WorkedOn = 2
-	Submitted = 3
-	ReadyToReview = 5
-	BeingReviewedReviewersNeeded = 6
-	BeingReviewedNoMoreReviwersNeeded = 7
-	GradeReady = 8
-
-
-
-
-class Submission:
-
-	def __init__(self,submissionTime,learnerId, trueScore):
-
-		self.state = SubmissionState.Start
-		self.submissionTime = 0
-		self.learnerId = 
-		self.grade = -1
-		self.numReviewers = 0
-		self.reviewsCompleted = 0
-		self.trueScore = trueScore
-		self.reviewers = []
-
-	def getTrueScore(self):
-		return self.trueScore
-
-	def getLearnerId(self):
-		return self.learnerId
-
-	def getSubmissionTime(self):
-		return self.submissionTime
-
-
-	def getState(self):
-		return self.state
-
-	def setState(self,state):
-		self.state = state
-
-	def getGrade(self):
-		return self.grade
-
-	def addGrade(self,grade):
-
-		if self.state != SubmissionState.BeingReviewedReviewersNeeded\
-		and self.state != SubmissionState.BeingReviewedNoMoreReviwersNeeded:
-			return -1 #Should not happen
-
-		self.reviewsCompleted = self.reviewsCompleted + 1
-
-		if self.grade == -1:
-			self.grade = grade
-		else:
-			self.grade = self.grade + grade
-
-		if self.reviewsCompleted == 3:
-			self.state = SubmissionState.GradeReady
-
-	def getGradeIfReady(self):
-
-		if self.state == Submission.GradeReady:
-			return self.grade
-
-		return -1
-
-	def isPassingGrade(self):
-
-		if self.state != Submission.GradeReady:
-			return -1
-
-		if self.grade >= 240:
-			return 1
-
-		return 0
-
-	def getReviewers(self):
-		return self.reviewers
-
-	def addReviewer(self,reviewerId):
-
-		if self.state != ReadyToReview and self.state != BeingReviewedReviewersNeeded:
-			return -1  #Should not happen
-
-		if self.state == SubmissionState.ReadyToReview:
-			self.reviewers.append[reviewerId]
-			self.numReviewers = 1
-			self.state = SubmissionState.BeingReviewedReviewersNeeded
-		elif self.state == SubmissionState.BeingReviewedReviewersNeeded:
-			self.reviewers.append[reviewerId]
-			self.numReviewers = self.numReviewers + 1
-			if self.reviewsCompleted + self.numReviewers == 3:
-				self.state = SubmissionState.BeingReviewedNoMoreReviwersNeeded
-
-
-
-
-
-
-
-
 class Simulation:
 
 	def __init__(self,duration):
 		self.duration = duration
 		self.ticks_elapsed = 0
 		self.learners = []
-		self.submissions = []
-		self.submissionsReadyToReview = []
-		self.ReviewerSubmissionMap = {}
-		self.submissionIndexMap = {}
+		self.submissionPool = SubmissionPool()
+		self.submissionsHistory = {}
 
 
 	def addLearner(self,learner):
 		self.learners.append(learner)
 
-	# def addsubmission(self,submission):
-	# 	self.submissions.append(submission)
+	def addSubmission(self,submission):
+		self.submissionPool.addSubmissionToPool(submission)
 
-	# 	submitterId = submisison.getLearnerId()
+		#For pretty printing simulation state at the end
+		submitterId = submission.getLearnerId()
 
-	# 	self.submissionIndexMap[submitterId] = len(self.submisisons) -1
+		if submitterid not in self.submissionsHistory:
+			self.submissionsHistory[submitterid] = []
+		
+		self.submissionsHistory[submitterid].append(submission)
 
+	def removeFailedSubmission(self,submitterid):
+		self.submissionPool.removeFailedSubmission(submitterid)
 
-	# def removeSubmission(self,submission):
+	def markReadyToReview(self):
+		self.submissionPool.markSubmissionsReadyToReview()
 
-	# 	submitterid = submission.getLearnerId()
+	def getSubmissionToReviewAndAddReviewer(self,learnerId,submissionsAlreadyReviewed):
 
-	# 	index = self.submissionIndexMap[submitterId]
+		self.submissionPool.getSubmissionToReviewAndAddReviewer(learnerId,submissionsAlreadyReviewed)
 
-	# 	if index < 0:
-	# 		return -1 #Error should not happen
+	def markGradedSubmissions(self):
+		self.submissionPool.markGradedSubmissions()
 
-	# 	self.submisisons.pop(index)
-
-	# 	self.submissionIndexMap[submitterId] = -1
-
-
-
-
-	# def markSubmissionsReadyToReview(self):
-
-	# 	for sub in self.submissions:
-	# 		if sub.getState() == SubmissionState.Submitted :
-	# 			sub.setState(SubmissionState.ReadyToReview)
-
-	# def addReviewerForSubmission(self,submisison,reviewerId):
-
-	# 	if reviewerId not in self.ReviewerSubmissionMap:
-	# 		self.ReviewerSubmissionMap[reviewerId] = []
-
-	# 	self.ReviewerSubmissionMap[reviewerId].append(submisison.getLearnerId())
-
-	# 	submission.addReviwer()
-
-	def getSubmissionToReview(self,learnerId,submissionsAlreadyReviewed):
-
-		subId = -1
-		minSubTime = sys.maxint
-		minLearnerId = sys.maxint
-
-		for idx in xrange(len(self.submissions)):
-			sub = self.submissions[idx]
-			subLid = sub.getLearnerId()
-			if subLid == learnerId :
-				continue
-
-			if subLid in submissionsAlreadyReviewed:
-				continue
-
-			# if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
-			# 	continue
-
-			subState = sub.getState()
-
-			if subState != SubmissionState.ReadyToReview and submisison != SubmissionState.BeingReviewedReviewersNeeded:
-				continue
-
-			subTime = sub.getSubmissionTime()
-			if (subTime < minSubTime) or ((subTime == minSubTime) and (subLid < minLearnerId)):
-				subId = idx
-				minSubTime = subTime
-				minLearnerId = subLid
-				continue
-			
-		if subId == -1:
-			return None
-
-		retval = self.submissions[subId]
-
-		retval.addReviwer(learnerId)
-
-		return retval
-
-
-
-
-	def doTickWork(self):
+	def run(self):
 
 		while self.duration >= self.ticks_elapsed:
 
+
 			#Mark all the submission in the last tick ready to be reviewed
+			self.markReadyToReview()
+			self.markGradedSubmissions()
+
+			for learner in self.learners:
+				learner.doTickWork(self.ticks_elapsed)
+
+			self.ticks_elapsed += 1
+
+	def __repr__(self):
+
+		retval = ''
+
+		sorted_learner_ids = sorted(self.submissionsHistory.keys())
+
+		for lID in sorted_learner_ids:
+			for idx in range(len(self.submissionsHistory[lID])):
+				sub = self.submissionsHistory[lID][idx]
+				if retval != '':
+					retval = retval + '\n'
+
+				retval = retval + str(lID) + ' ' + str(idx) + ' ' + str(sub.getSubmissionTime())\
+					+ ' ' + str(sub.getGrade()) + ' ' + str(sub.getGradeTick())
+
+		return retval
+
+	__str__ = __repr__
+
+
+
+
 
 
 
@@ -395,6 +556,8 @@ if __name__ == '__main__':
 		learner = Learner(lId,fSST,fSTG,rB)
 
 		sim.addLearner(learner)
+
+	sim.run()
 
 
 
