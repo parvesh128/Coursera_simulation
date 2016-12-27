@@ -161,25 +161,31 @@ class submissionListAndMap:
 
 	def removeNode(self,node):
 
-		prevNode = node.p
-		nextNode = node.n
 
-		if prevNode != None:
-			prevNode.n = nextNode
-		if nextNode != None:
-			nextNode.p = prevNode
+		if self.size == 1:
+			self.head = None
+			self.tail = None
+			self.size = 0
+		else:
+			prevNode = node.p
+			nextNode = node.n
 
-		if self.head == node and prevNode != None:
-			self.head = prevNode
-		elif self.head == node:
-			self.head = nextNode
+			if prevNode != None:
+				prevNode.n = nextNode
+			if nextNode != None:
+				nextNode.p = prevNode
 
-		if self.tail == node and nextNode != None:
-			self.tail = nextNode
-		elif self.tail == node:
-			self.tail = prevNode
+			if self.head == node and prevNode != None:
+				self.head = prevNode
+			elif self.head == node:
+				self.head = nextNode
 
-		self.size =self.size - 1
+			if self.tail == node and nextNode != None:
+				self.tail = nextNode
+			elif self.tail == node:
+				self.tail = prevNode
+
+			self.size =self.size - 1
 
 		lId = node.getSubmission().getLearnerId()
 
@@ -191,11 +197,12 @@ class submissionListAndMap:
 
 		self.map[subNode.getSubmission().getLearnerId()] = subNode
 
-		if self.head == None:
+		if self.head == None and self.tail == None:
 			self.head = subNode
 			self.tail = subNode
 		else:
 			self.tail.n = subNode
+			subNode.p = self.tail
 			self.tail = subNode
 
 		self.size =self.size + 1
@@ -610,7 +617,7 @@ class Simulation:
 
 if __name__ == '__main__':
 
-	f = open('test_cases_80bf9f7km99/input006.txt','r')
+	f = open('test_cases_80bf9f7km99/input009.txt','r')
 
 	#duration = int(raw_input())
 	#num_learners = int(raw_input())
