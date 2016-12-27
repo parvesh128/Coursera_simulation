@@ -2,7 +2,7 @@ import sys
 
 
 class SubmissionState:
-	Start,WorkedOn,Submitted ,ReadyToReview ,BeingReviewedReviewersNeeded,BeingReviewedNoMoreReviwersNeeded,GradeReady = range(8)
+	Start,WorkedOn,Submitted ,ReadyToReview ,BeingReviewedReviewersNeeded,BeingReviewedNoMoreReviwersNeeded,GradeReady = range(7)
 
 
 class Submission:
@@ -10,14 +10,14 @@ class Submission:
 	def __init__(self,submissionTime,learnerId, trueScore):
 
 		self.state = SubmissionState.Start
-		self.submissionTime = 0
+		self.submissionTime = submissionTime
 		self.learnerId = learnerId
 		self.grade = 0
 		self.numReviewers = 0
 		self.reviewsCompleted = 0
 		self.trueScore = trueScore
 		self.reviewers = []
-		self.gradeTick =
+		self.gradeTick = -1
 
 	def getTrueScore(self):
 		return self.trueScore
@@ -64,14 +64,14 @@ class Submission:
 
 	def getGradeIfReady(self):
 
-		if self.state == Submission.GradeReady:
+		if self.state == SubmissionState.GradeReady:
 			return self.grade
 
 		return -1
 
 	def isPassingGrade(self):
 
-		if self.state != Submission.GradeReady:
+		if self.state != SubmissionState.GradeReady:
 			return -1
 
 		if self.grade >= 240:
@@ -84,15 +84,15 @@ class Submission:
 
 	def addReviewer(self,reviewerId):
 
-		if self.state != ReadyToReview and self.state != BeingReviewedReviewersNeeded:
+		if self.state != SubmissionState.ReadyToReview and self.state != SubmissionState.BeingReviewedReviewersNeeded:
 			return -1  #Should not happen
 
 		if self.state == SubmissionState.ReadyToReview:
-			self.reviewers.append[reviewerId]
+			self.reviewers.append(reviewerId)
 			self.numReviewers = 1
 			self.state = SubmissionState.BeingReviewedReviewersNeeded
 		elif self.state == SubmissionState.BeingReviewedReviewersNeeded:
-			self.reviewers.append[reviewerId]
+			self.reviewers.append(reviewerId)
 			self.numReviewers = self.numReviewers + 1
 			if self.reviewsCompleted + self.numReviewers == 3:
 				self.state = SubmissionState.BeingReviewedNoMoreReviwersNeeded
@@ -103,14 +103,14 @@ class Submission:
 
 
 
-class Linked_list_node:
+class SubmissionNode:
 
 	def __init__(self,submission):
 		self.sub = submission
 		self.p = None
 		self.n = None
 
-	def getSubmission():
+	def getSubmission(self):
 		return self.sub
 
 class submissionListAndMap:
@@ -122,11 +122,14 @@ class submissionListAndMap:
 		self.size = 0
 		self.current = -1
 
+	def getSize(self):
+		return self.size
 
 	def __iter__(self):
-        return self
-
-    def next(self):
+		self.current = -1
+		return self
+	
+	def next(self):
 		retval = None 
 		if self.current == -1:
 			if self.head == None:
@@ -146,7 +149,7 @@ class submissionListAndMap:
 		if submission == None:
 			return -1 #Error should not happen
 
-		new_node = Linked_list_node(submission)
+		new_node = SubmissionNode(submission)
 
 		self.insertNode(new_node)
 
@@ -225,8 +228,10 @@ class submissionListAndMap:
 
 				prev = temp
 				temp = temp.n
-
 				other.removeNode(prev)
+			else:
+				temp = temp.n
+
 
 
 
@@ -254,14 +259,16 @@ class SubmissionPool:
 
 	def markSubmissionsReadyToReview(self):
 
-		self.revLM.appendOtherListandMap(self.subLM)
+		if self.subLM.getSize() > 0:
 
-		self.subLM = submissionListAndMap()
+			self.revLM.appendOtherListandMap(self.subLM)
+
+			self.subLM = submissionListAndMap()
 
 	def markGradedSubmissions(self):
 
-		self.reviewedLM.appendOtherListNodeInaParticularState(self.revLM,SubmissionState.GradeReady)
-
+		if self.revLM.getSize() > 0:
+			self.reviewedLM.appendOtherListNodeInaParticularState(self.revLM,SubmissionState.GradeReady)
 
 
 	def getSubmissionToReviewAndAddReviewer(self,learnerId,submissionsAlreadyReviewed):
@@ -270,33 +277,39 @@ class SubmissionPool:
 		minSubTime = sys.maxint
 		minLearnerId = sys.maxint
 
+		print "Debug 0 getSubmissionToReviewAndAddReviewer " + str(learnerId)
 		for sub in self.revLM:
 			subLid = sub.getLearnerId()
+
+			print "Debug 1 getSubmissionToReviewAndAddReviewer " + str(learnerId) + " Sublid " + str(subLid)
 			if subLid == learnerId :
 				continue
 
+			print "Debug 2 getSubmissionToReviewAndAddReviewer " + str(learnerId) + " Sublid " + str(subLid)
 			if subLid in submissionsAlreadyReviewed:
 				continue
 
-			# if learnerId in self.ReviewerSubmissionMap and subLid in self.ReviewerSubmissionMap[learnerId]:
-			# 	continue
+			print "Debug 3 getSubmissionToReviewAndAddReviewer " + str(learnerId) + " Sublid " + str(subLid)
 
 			subState = sub.getState()
 
-			if subState != SubmissionState.ReadyToReview and submisison != SubmissionState.BeingReviewedReviewersNeeded:
+			if subState != SubmissionState.ReadyToReview and subState != SubmissionState.BeingReviewedReviewersNeeded:
 				continue
 
+			print "Debug 4 getSubmissionToReviewAndAddReviewer " + str(learnerId) + " Sublid " + str(subLid)
 			subTime = sub.getSubmissionTime()
 			if (subTime < minSubTime) or ((subTime == minSubTime) and (subLid < minLearnerId)):
+				print "Debug 5 getSubmissionToReviewAndAddReviewer " + str(learnerId) + " Sublid " + str(subLid)
 				minsub = sub
 				minSubTime = subTime
 				minLearnerId = subLid
-				continue
-			
+		
+		print "Debug 6 getSubmissionToReviewAndAddReviewer " + str(learnerId) 
 		if minsub == None:
 			return None
 
-		minsub.addReviwer(learnerId)
+		print "Debug 7 getSubmissionToReviewAndAddReviewer " + str(learnerId) + "subLid " + str(minsub.getLearnerId())
+		minsub.addReviewer(learnerId)
 
 		return minsub
 
@@ -325,23 +338,27 @@ class Learner:
 
 		return min(100,self.fSTG + 15*self.numSubmissions)
 
-	def getGradeForTheSubmissionReviewing(trueScore):
+	def getGradeForTheSubmissionReviewing(self,trueScore):
 
-		if self.reviewBias > 0:
-
-			return max(0,trueScore+reviewBias)
-
-		return min(100,trueScore+reviewBias)
+		if self.rB < 0:
+			return max(0,trueScore+self.rB)
+		return min(100,trueScore+self.rB)
 
 	def doTickWork(self,current_tick):
 
+		print "Debug -1 In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 		while 1:
-			if current_tick < self.fSTG:
+			if current_tick < self.fSST:
+				print "Debug 0 In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 				break
 			elif self.state == LearnerState.WaitingBeforeFirstSubmission:
+				print "Debug 1 In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 				self.state = LearnerState.WorkingOnSubmission
 				self.workToBeDone = 50 #Start working on submisison
+				break
 			elif self.state == LearnerState.WorkingOnSubmission:
+				print "Debug 2  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+				#print "Debug Working on submission " + str(self.lId) + " work left " + str(self.workToBeDone)
 				self.workToBeDone = self.workToBeDone - 1
 
 				if self.workToBeDone > 0:
@@ -349,13 +366,17 @@ class Learner:
 
 				#TODO Done with work Submit it ?
 				trueScore = self.getTrueScoreForTheSubmission()
-				submission = Submission(current_tick,self.learnerId,trueScore)
+				submission = Submission(current_tick,self.lId,trueScore)
 				self.numSubmissions = self.numSubmissions + 1
 				self.LastSubmission = submission
 				self.sim.addSubmission(submission)
 				self.state = LearnerState.WaitingForSubmissionsToreview
-			
+
+				print "Debug 2.5  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+				break
 			elif self.state == LearnerState.WaitingForSubmissionsToreview:
+
+				print "Debug 3  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 
 				#Try to see if the last submission by me has been graded if failed work on it
 				#self.state = LearnerState.WorkingOnSubmission
@@ -364,14 +385,15 @@ class Learner:
 				if self.LastSubmission == None:
 					break #error condition should not happen
 
-				lastSubmissionGraded = self.LastSubmission.isPassingGrade() 
-				if lastSubmissionGraded == 0:
+				islastSubmissionGraded = self.LastSubmission.isPassingGrade() 
+				if islastSubmissionGraded == 0:
 					#Remove it from the list of submissions
 					self.sim.removeFailedSubmission(self.lId)
 					self.state = LearnerState.WorkingOnSubmission
 					self.workToBeDone = 50
 					break
 
+				print "Debug 3.5  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 
 				#Try to see if something to review
 				#self.state = LearnerState.Reviewing
@@ -381,9 +403,10 @@ class Learner:
 				if submissiontoReview == None:
 					break
 				
+				print "Debug 3.75  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 				#self.sim.addReviewerForSubmission(submissiontoReview,self.lId)
 				self.submissionReviewing = submissiontoReview
-				self.submissionsAlreadyReviewed.append(submission.learnerId)
+				self.submissionsAlreadyReviewed.append(submissiontoReview.getLearnerId())
 				self.state = LearnerState.Reviewing
 				self.workToBeDone = 20
 
@@ -392,13 +415,15 @@ class Learner:
 
 			elif self.state == LearnerState.Reviewing:
 
+				print "Debug 4  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 				self.workToBeDone = self.workToBeDone - 1
 				if self.workToBeDone > 0:
 					break
 
+				print "Debug 4.25  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 
 				self.numReviews = self.numReviews + 1
-				grade = getGradeForTheSubmissionReviewing(self.submissionReviewing.getTrueScore())
+				grade = self.getGradeForTheSubmissionReviewing(self.submissionReviewing.getTrueScore())
 				self.submissionReviewing.addGrade(grade,current_tick)
 				self.submissionReviewing = None
 
@@ -410,8 +435,9 @@ class Learner:
 				if self.LastSubmission == None:
 					break #error condition should not happen
 
-				lastSubmissionGraded = self.LastSubmission.isPassingGrade() 
-				if lastSubmissionGraded == 0:
+				print "Debug 4.5  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+				islastSubmissionGraded = self.LastSubmission.isPassingGrade() 
+				if islastSubmissionGraded == 0:
 					#Remove it from the list of submissions
 					self.sim.removeFailedSubmission(self.lId)
 					self.state = LearnerState.WorkingOnSubmission
@@ -419,18 +445,20 @@ class Learner:
 					break
 
 
-				if self.numReviews < 3*numSubmissions:
+				print "Debug 4.75  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+				if self.numReviews < 3*self.numSubmissions:
 					self.state = LearnerState.WaitingForSubmissionsToreview
 					break
 
+				print "Debug 4.90  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 				#See if latest submission doesn't have a grade
-				if lastSubmissionGraded == -1:
+				if islastSubmissionGraded == -1:
 					self.state = LearnerState.WaitingForGrade
 					break
 
 
 				#If nothing it means got a passing grade 
-				self.state = Finished
+				self.state = LearnerState.Finished
 
 			elif self.state == LearnerState.WaitingForGrade:
 
@@ -438,8 +466,8 @@ class Learner:
 				#Check how many reviews does latest submission has 
 				#if less than 3 
 				#break
-				lastSubmissionGraded = self.LastSubmission.isPassingGrade()
-				if lastSubmissionGraded == -1:
+				islastSubmissionGraded = self.LastSubmission.isPassingGrade()
+				if islastSubmissionGraded == -1:
 					break
 
 
@@ -447,7 +475,7 @@ class Learner:
 				#self.state = LearnerState.WorkingOnSubmission
 				#self.workToBeDone = 50
 				#break
-				if lastSubmissionGraded == 0:
+				if islastSubmissionGraded == 0:
 					self.sim.removeFailedSubmission(self.lId)
 					self.state = LearnerState.WorkingOnSubmission
 					self.workToBeDone = 50
@@ -475,15 +503,18 @@ class Simulation:
 		self.learners.append(learner)
 
 	def addSubmission(self,submission):
+
+		print "Debug add submission"
+		
 		self.submissionPool.addSubmissionToPool(submission)
 
 		#For pretty printing simulation state at the end
 		submitterId = submission.getLearnerId()
 
-		if submitterid not in self.submissionsHistory:
-			self.submissionsHistory[submitterid] = []
+		if submitterId not in self.submissionsHistory:
+			self.submissionsHistory[submitterId] = []
 		
-		self.submissionsHistory[submitterid].append(submission)
+		self.submissionsHistory[submitterId].append(submission)
 
 	def removeFailedSubmission(self,submitterid):
 		self.submissionPool.removeFailedSubmission(submitterid)
@@ -493,7 +524,7 @@ class Simulation:
 
 	def getSubmissionToReviewAndAddReviewer(self,learnerId,submissionsAlreadyReviewed):
 
-		self.submissionPool.getSubmissionToReviewAndAddReviewer(learnerId,submissionsAlreadyReviewed)
+		return self.submissionPool.getSubmissionToReviewAndAddReviewer(learnerId,submissionsAlreadyReviewed)
 
 	def markGradedSubmissions(self):
 		self.submissionPool.markGradedSubmissions()
@@ -518,6 +549,9 @@ class Simulation:
 
 		sorted_learner_ids = sorted(self.submissionsHistory.keys())
 
+		
+		print "Debug size of submissions done " + str(len(self.submissionsHistory.keys()))
+
 		for lID in sorted_learner_ids:
 			for idx in range(len(self.submissionsHistory[lID])):
 				sub = self.submissionsHistory[lID][idx]
@@ -540,24 +574,32 @@ class Simulation:
 
 if __name__ == '__main__':
 
-	duration = int(raw_input())
-	num_learners = int(raw_input())
+	f = open('test_cases_80bf9f7km99/input001.txt','r')
 
+	#duration = int(raw_input())
+	#num_learners = int(raw_input())
+
+	duration = int(f.readline())
+	num_learners = int(f.readline())
 	sim = Simulation(duration)
 
 	for i in xrange(num_learners):
-		learner_params = raw_input().split()
+		learner_params = f.readline().split()
 
 		lId = int(learner_params[0])
 		fSST = int(learner_params[1])
 		fSTG = int(learner_params[2])
 		rB = int(learner_params[3])
 
-		learner = Learner(lId,fSST,fSTG,rB)
+		learner = Learner(lId,fSST,fSTG,rB,sim)
 
 		sim.addLearner(learner)
 
+	f.close()
+
 	sim.run()
+
+	print sim
 
 
 
