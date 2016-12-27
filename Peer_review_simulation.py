@@ -16,7 +16,7 @@ class Submission:
 		self.numReviewers = 0
 		self.reviewsCompleted = 0
 		self.trueScore = trueScore
-		self.reviewers = []
+		#self.reviewers = []
 		self.gradeTick = -1
 
 	def getTrueScore(self):
@@ -49,6 +49,7 @@ class Submission:
 			return -1 #Should not happen
 
 		self.reviewsCompleted = self.reviewsCompleted + 1
+		self.numReviewers = self.numReviewers - 1
 
 		if self.grade == -1:
 			self.grade = grade
@@ -76,8 +77,8 @@ class Submission:
 
 		return 0
 
-	def getReviewers(self):
-		return self.reviewers
+	# def getReviewers(self):
+	# 	return self.reviewers
 
 	def addReviewer(self,reviewerId):
 
@@ -85,13 +86,13 @@ class Submission:
 			return -1  #Should not happen
 
 		if self.state == SubmissionState.ReadyToReview:
-			self.reviewers.append(reviewerId)
+			#self.reviewers.append(reviewerId)
 			self.numReviewers = 1
 			self.state = SubmissionState.BeingReviewedReviewersNeeded
 		elif self.state == SubmissionState.BeingReviewedReviewersNeeded:
-			self.reviewers.append(reviewerId)
+			#self.reviewers.append(reviewerId)
 			self.numReviewers = self.numReviewers + 1
-			if self.reviewsCompleted + self.numReviewers == 3:
+			if self.reviewsCompleted + self.numReviewers >= 3:
 				self.state = SubmissionState.BeingReviewedNoMoreReviwersNeeded
 
 
@@ -317,7 +318,7 @@ class SubmissionPool:
 
 
 class LearnerState:
-	WaitingBeforeFirstSubmission ,WorkingOnSubmission ,WaitingForSubmissionsToreview,Reviewing,Reviewed,WaitingForGrade,Finished = range(7)
+	WaitingBeforeFirstSubmission ,WorkingOnSubmission ,WaitingForSubmissionsToreview,Reviewing,DoneReviewing,WaitingForGrade,Finished = range(7)
 
 class Learner:
 
@@ -357,6 +358,32 @@ class Learner:
 	def setWorkForReview(self,current_tick):
 		self.workStart = current_tick
 		self.workFinish = current_tick + 20
+
+
+	def doReviewWork(self,current_tick):
+		if self.state != LearnerState.Reviewing:
+			return #Error should not happen
+
+		print "Debug new 4  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+		# self.workToBeDone = self.workToBeDone - 1
+		# if self.workToBeDone >= 0:
+		# 	break
+
+		if current_tick < self.workFinish:
+			return
+		# 	self.state = LearnerState.Reviewed
+		# 	break
+		# elif self.state == LearnerState.Reviewed:
+
+		print "Debug new 4.25  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+
+		self.numReviews = self.numReviews + 1
+		grade = self.getGradeForTheSubmissionReviewing(self.submissionReviewing.getTrueScore())
+		self.submissionReviewing.addGrade(grade,current_tick)
+		self.submissionReviewing = None
+
+		self.state = LearnerState.DoneReviewing
+
 
 
 
@@ -428,29 +455,31 @@ class Learner:
 				self.submissionsAlreadyReviewed.append(submissiontoReview.getLearnerId())
 				self.state = LearnerState.Reviewing
 				self.setWorkForReview(current_tick)
+				break #Check if this was needed
 
 
 				#If nothing keep waiting in this state
-
 			elif self.state == LearnerState.Reviewing:
+				break
+			elif self.state == LearnerState.DoneReviewing:
 
-				print "Debug 4  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
-				# self.workToBeDone = self.workToBeDone - 1
-				# if self.workToBeDone >= 0:
+				# print "Debug 4  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
+				# # self.workToBeDone = self.workToBeDone - 1
+				# # if self.workToBeDone >= 0:
+				# # 	break
+
+				# if current_tick < self.workFinish:
 				# 	break
+				# # 	self.state = LearnerState.Reviewed
+				# # 	break
+				# # elif self.state == LearnerState.Reviewed:
 
-				if current_tick < self.workFinish:
-					break
-				# 	self.state = LearnerState.Reviewed
-				# 	break
-				# elif self.state == LearnerState.Reviewed:
+				# print "Debug 4.25  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
 
-				print "Debug 4.25  In the beginning of tick " + str(self.lId) + " Current tick: " + str(current_tick)
-
-				self.numReviews = self.numReviews + 1
-				grade = self.getGradeForTheSubmissionReviewing(self.submissionReviewing.getTrueScore())
-				self.submissionReviewing.addGrade(grade,current_tick)
-				self.submissionReviewing = None
+				# self.numReviews = self.numReviews + 1
+				# grade = self.getGradeForTheSubmissionReviewing(self.submissionReviewing.getTrueScore())
+				# self.submissionReviewing.addGrade(grade,current_tick)
+				# self.submissionReviewing = None
 
 
 				#Try to see if the last submission by me has been graded if failed work on it
@@ -570,18 +599,22 @@ class Simulation:
 			self.markReadyToReview()
 			#self.markGradedSubmissions()
 
-			learnerQueue = []
+			ReviewingLearners = []
 			for learner in self.learners:
 				#first find learners which are in reviewing state or reviewed state and perform the tick for them
 				learnerState = learner.getState() 
-				if learnerState == LearnerState.Reviewing or learnerState == LearnerState.Reviewed:
-					learnerQueue.insert(0,learner)
-				else:
-					learnerQueue.append(learner)
+				if learnerState == LearnerState.Reviewing:
+					ReviewingLearners.append(learner)
+				
 
 
-			for learner in learnerQueue:
+			for learner in ReviewingLearners:
+				learner.doReviewWork(self.ticks_elapsed)
+
+			for learner in self.learners:
 				learner.doTickWork(self.ticks_elapsed)
+
+
 
 
 			self.ticks_elapsed += 1
